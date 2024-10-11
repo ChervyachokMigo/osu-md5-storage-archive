@@ -1,0 +1,5 @@
+/node_modules/
+/test/
+/errors/
+output.raw
+output.json

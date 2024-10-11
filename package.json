@@ -1,0 +1,20 @@
+{
+  "name": "osu-md5-storage-archive",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "set NODE_OPTIONS=\"--max-old-space-size=22000\" && node index.js",
+    "create": "set NODE_OPTIONS=\"--max-old-space-size=22000\" && mode index.js create",
+    "test": "set NODE_OPTIONS=\"--max-old-space-size=22000\" && node index.js test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fs-extra": "^11.2.0",
+    "json-bigint": "^1.0.0",
+    "lzma": "^2.3.2",
+    "md5-file": "^5.0.0"
+  }
+}
