@@ -10,6 +10,7 @@ const cache = {
 }
 
 const storage_path = {
+	source: null,
 	json: null,
 	raw: null
 }
@@ -21,56 +22,111 @@ const check_folder = (foldername) => {
 }
 
 const _this = module.exports = {
-	set_path: (destination) => {
+	set_path: ({ source, destination }) => {
+		storage_path.source = source;
 		storage_path.json = destination + '.json';
 		storage_path.raw = destination + '.raw';
 	},
 
-	check_path: () => {
-		if (!existsSync(storage_path.json) || !existsSync(storage_path.raw)) {
-            throw new Error(`The specified storage paths '${storage_path.json}' and '${storage_path.raw}' do not exist.`);
-        }
-	},
-
-	read: (folderpath) => {
-		if (!existsSync(folderpath)){
-			throw new Error(`The specified folder '${folderpath}' does not exist.`)
+	compress_files: async () => {
+		if (!existsSync(storage_path.source)){
+			throw new Error(`The specified folder '${storage_path.source}' does not exist.`)
 		}
 
-		const result = [];
+		cache.filelist = [];
         console.log('чтение файлов');
-		const files = readdirSync(folderpath, { encoding: 'utf8' });
+		const files = readdirSync(storage_path.source, { encoding: 'utf8' });
 
 		const chunk_size = Math.trunc(files.length / 10 );
 		for (let i = 0; i < files.length; i++){
 			if ( i % chunk_size === 0 ) {
 				console.log(`(${((i / files.length) * 100).toFixed(0)}%) Processing ${i + 1} of ${files.length} files... `);
-			}
-			// if (files[i].slice(0, 32) !== '0c4c56f01318ed043312cb0f14787c54') {
-			// 	continue;
-			// }
-			
+			}			
 			const filename = files[i];
-			const filepath = path.join(folderpath, filename);
+			const filepath = path.join(storage_path.source, filename);
 			const data = readFileSync(filepath);
-            result.push({ 
+            cache.filelist.push({ 
 				name: filename.slice(0, 32),
 				data,
 			});
-			// if ( filename.slice(0, 32) === '0c4c56f01318ed043312cb0f14787c54'){
-			// 	writeFileSync(filename, data);
-			// 	console.log(md5File.sync(filename));
-			// 	//console.log(data.toString('utf8'));
-			// 	process.exit();
-			// }
         };
-		return result;
+
+		_this.update_offsets();
+
+		await _this.save_all_data();
 	},
 
 	load_filelist: () => {
-		_this.check_path();
 		const result = JSONbig.parse(readFileSync(storage_path.json, { encoding: 'utf8' }));
         cache.filelist = result;
+	},
+
+	get_filelist: (args = { is_raw: false, is_set: false }) => {
+		if (typeof args.is_raw === 'undefined'){
+			args.is_raw = false;
+		}
+		if (typeof args.is_set === 'undefined'){
+            args.is_set = false;
+        }
+		if (!cache.filelist) {
+            _this.load_filelist();
+        }
+		if (args.is_raw) {
+			const filelist = cache.filelist.map( v => v.name); 
+			return args.is_set ? new Set(filelist) : filelist;
+		} else {
+			return cache.filelist;
+		}
+	},
+
+	cache_add_data: (name, data) => {
+		const i = cache.filelist.findIndex( v => v.name === name );
+		if (i === -1) {
+            throw new Error(`The specified file '${name}' does not exist in the list.`);
+        }
+		cache.filelist[i].data = data;
+	},
+
+	load_all_data: async () => {
+		if (!cache.filelist) {
+            _this.load_filelist();
+        }
+		const chunk_size = Math.trunc(cache.filelist.length / 100);
+		for (let i = 0; i < cache.filelist.length; i++) {
+			if (i % chunk_size === 0) {
+                console.log(`(${((i / cache.filelist.length) * 100).toFixed(0)}%) Processing ${i + 1} of ${cache.filelist.length} files... `);
+            }
+            cache.filelist[i].data = await _this.read_one_by_index(i);
+		}
+	},
+
+	save_all_data: async (output = storage_path) => {
+		console.log('сохранение списка файлов в json');
+        writeFileSync(output.json, JSONbig.stringify(
+			cache.filelist.map( v => ({ 
+				name: v.name, 
+				offset: v.offset, 
+				size: v.size }))
+		), { encoding: 'utf8' });
+
+		console.log('сохранение сжатого файла');
+		return await new Promise( (res, rej) => {
+			const writer = createWriteStream(output.raw, {autoClose: true, flush: true });
+	
+			for (let {data} of cache.filelist) {
+				writer.write(data, (err) => {
+					if (err) {
+						console.error('Ошибка при записи файла:', err);
+						rej(err);
+					}
+				});
+			}
+
+			writer.on('close', () => {
+				console.log('сохранение завершено');
+				res(true);
+			});
+		});
 	},
 
 	find: (name) => {
@@ -82,54 +138,56 @@ const _this = module.exports = {
             throw new Error(`The specified file '${name}' does not exist in the list.`);
         }
 		return result;
-
 	},
 
-	save: async (files) => {
-		_this.check_path();
+	findIndex: (name) => {
+		if (!cache.filelist) {
+			_this.load_filelist();
+		}
+		const result = cache.filelist.findIndex(file => file.name === name);
+		if (result === -1) {
+            throw new Error(`The specified file '${name}' does not exist in the list.`);
+        }
+		return result;
+	},
 
+	update_offsets: () => {
 		let last_offset = 0;
-		let last_size = 0;
+		for( let i = 0; i < cache.filelist.length; i++ ) {
+			cache.filelist[i].offset = last_offset;
+			cache.filelist[i].size = cache.filelist[i].data.length;
+			last_offset += cache.filelist[i].data.length;
+		} 
+	},
 
-		console.log('создание списка файлов');
-        const files_list = files.map(({ name, data }) => {
-			last_size = data.length;
-			const res = {
-				name,
-				offset: last_offset,
-				size: last_size
-			}
-			last_offset += last_size;
-			return res;
-		});
-		
-		console.log('сохранение списка файлов в json');
-        writeFileSync(storage_path.json, JSONbig.stringify(files_list), { encoding: 'utf8' });
-
-		console.log('сохранение сжатого файла');
-		
+	read_one_by_index: async (i) => {
 		return await new Promise( (res, rej) => {
-			const writer = createWriteStream(storage_path.raw, {autoClose: true, flush: true });
-	
-			for (let file of files) {
-				writer.write(file.data, (err) => {
-					if (err) {
-						console.error('Ошибка при записи файла:', err);
-						throw err;
-						rej(err);
-					}
-					res(true);
-				});
-			}
-			writer.on('close', () => {
-				console.log('сжатие завершено');
+			const stream = createReadStream( storage_path.raw, { 					
+				start: cache.filelist[i].offset, 
+				end: cache.filelist[i].offset + cache.filelist[i].size - 1  
+			});
+			let result = null;
+			stream.on('error', err => {
+				console.log('Ошибка чтения:', err);
+				throw err;
+			});
+
+			stream.on('data', chunk => {
+				if (!result) {
+					result = chunk;
+				} else {
+					result = Buffer.concat([ result, chunk ]);
+				}
+			});
+
+			stream.on('end', () => {
+				res(result);
 			});
 		});
-
+		
 	},
 
 	read_one: async (name) => {
-		_this.check_path();
 
         const file = _this.find(name);
         
@@ -162,8 +220,12 @@ const _this = module.exports = {
 		return { name, data, offset: file.offset, size: file.size }
 	},
 
-	check_all: async (skip_checked = false) => {
-		_this.check_path();        
+	remove_one: (name) => {
+		const i = _this.findIndex(name);
+		cache.filelist.splice(i, 1);
+	},
+
+	check_all: async (skip_checked = false) => {     
 		_this.load_filelist();
 		//create folders
 		check_folder('test');
@@ -184,7 +246,6 @@ const _this = module.exports = {
 			if (md5 !== name) {
 				copyFileSync(output_filepath, `errors/${name}`);
 				console.error(`Ошибка md5 для '${name}': ожидалось ${name}, получено ${md5}`);
-                //throw new Error(`Ошибка md5 для '${name}'`);
 			}
 		}
 	}
