@@ -389,7 +389,7 @@ const _this = module.exports = {
 
 		const to_copy = difference(osu_db.beatmaps);
 		console.log(`Обнаружено ${to_copy.length} несовпадающих md5`);
-
+		let saved = 0;
 		for (const file of to_copy){
 			const res = _this.add_one(path.join(local_storage_path.osu, 'Songs', file.folder_name, file.osu_filename ), file.beatmap_md5 );
 			if (res === false){
@@ -399,7 +399,11 @@ const _this = module.exports = {
 			const last = cache.filelist.length - 1;
 			cache.filelist[last].gamemode = await _this.read_gamemode(last);
 			console.log('> copy', file.beatmap_md5);
+			saved++;
 		}
-
+		if (saved > 0) {
+			_this.save_filelist(local_storage_path);
+			console.log(`Скопировано ${saved} файлов`);
+		}
 	},
 }

@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "set NODE_OPTIONS=\"--max-old-space-size=22000\" && node index.js",
-    "create": "set NODE_OPTIONS=\"--max-old-space-size=22000\" && mode index.js create",
-    "test": "set NODE_OPTIONS=\"--max-old-space-size=22000\" && node index.js test"
+	
+    "test": "set NODE_OPTIONS=\"--max-old-space-size=22000\" && node main.js"
   },
   "keywords": [],
   "author": "",
