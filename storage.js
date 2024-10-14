@@ -5,6 +5,7 @@ const path = require('path');
 const JSONbig = require('json-bigint');
 const md5File = require('md5-file');
 const crypto = require('crypto');
+const { osu_db_load, beatmap_property, Gamemode } = require("osu-tools");
 
 const cache = {
 	filelist: null
@@ -12,7 +13,8 @@ const cache = {
 
 const storage_path = {
 	source: null,
-	destination: null
+	destination: null,
+	osu: null
 }
 
 const block_size = 2000111000;
@@ -24,9 +26,10 @@ const check_folder = (foldername) => {
 }
 
 const _this = module.exports = {
-	set_path: ({ source, destination }) => {
+	set_path: ({ source, destination, osu }) => {
 		storage_path.source = source;
 		storage_path.destination = destination;
+		storage_path.osu = osu;
 	},
 
 	prepare: (local_storage_path = storage_path) => {
@@ -76,7 +79,7 @@ const _this = module.exports = {
             args.is_set = false;
         }
 		if (args.is_raw) {
-			const filelist = cache.filelist.map( v => v.name); 
+			const filelist = cache.filelist.map( v => v.name).concat(cache.filelist.map( v => v.name_deleted )); 
 			return args.is_set ? new Set(filelist) : filelist;
 		} else {
 			return cache.filelist;
@@ -101,6 +104,7 @@ const _this = module.exports = {
 				block_num: v.block_num,
 				offset: v.offset,
                 size: v.size,
+				gamemode: v.gamemode,
                 name_deleted: v.name_deleted
 			}))), { encoding: 'utf8' });
 	},
@@ -238,9 +242,18 @@ const _this = module.exports = {
 		}
 	},
 
-	add_one: async (filepath) => {
+	add_one: (filepath, md5 = null) => {
+		//checkexist
+		if (!existsSync(filepath)) {
+            console.error(`Файл '${filepath}' не найден.`);
+			return false;
+        }
+
+		if (!md5) {
+			md5 = path.basename(filepath).slice(0, 32);
+		} 
+		const name = md5;
 		const data = readFileSync(filepath);
-		const name = path.basename(filepath).slice(0, 32);
 		const i = cache.filelist.findIndex( v => v.name_deleted === name);
 		if (i === -1) {
 			const last = cache.filelist.length - 1;
@@ -255,14 +268,14 @@ const _this = module.exports = {
 			}
 			const file = { name, block_num, offset, size, data };
             cache.filelist.push(file);
-			await _this.save_one(file);
+			_this.save_one(file);
 			console.log(`Добавлен новый файл: ${name}`);
         } else {
 			delete cache.filelist[i].name_deleted;
             cache.filelist[i].name = name;
             console.log(`Восстановлен удаленный файл: ${name}`);
 		}
-		
+		return true;
 	},
 
 	check_all: async () => {     
@@ -283,5 +296,110 @@ const _this = module.exports = {
 				console.error(`Ошибка md5 для '${name}': ожидалось ${name}, получено ${md5}`);
 			}
 		}
-	}
+	},
+
+	read_gamemode: async (i) => {
+		if ( typeof cache.filelist[i].data === 'undefined' ) {
+			cache.filelist[i].data = await _this.read_one_by_index(i);
+		}
+
+		let mode = null;
+		
+		const match = cache.filelist[i].data.toString().match( /mode:[ ]*([0-3])/i);
+		if (match && match[1]){
+			mode = parseInt(match[1]);
+		} else {
+			mode = 0;
+		}
+			
+		if (mode === null) {
+			mode = 0;
+			console.error(`Не найдены данные gamemode для файла ${cache.filelist[i].name} в базе beatmaps.`);
+		}
+		return mode;
+	},
+
+	update_gamemode: async (beatmaps) => {
+		const chunk_size = Math.trunc(cache.filelist.length / 100);
+		console.time('chunk')
+		for(let i = 0; i < cache.filelist.length; i++){
+			//print progress
+			if(i % chunk_size === 0) {
+                console.log(`(${((i / cache.filelist.length) * 100).toFixed(0)}%) Обновление gamemode для ${i} из ${cache.filelist.length} файлов... `);
+				console.timeEnd('chunk');
+				console.time('chunk');
+            }
+            
+            if(cache.filelist[i].name === null) {
+				console.log(`Файл пропущен ${cache.filelist[i].name_deleted} потому что удален.`);
+                continue;
+            }
+
+			if(typeof cache.filelist[i].gamemode !== 'undefined') {
+				continue;
+			}
+			
+			const idx = beatmaps.findIndex( v => {
+				return v.beatmap_md5 === cache.filelist[i].name });
+			if(idx === -1) {
+				//console.log(`Не найдены данные gamemode для файла ${cache.filelist[i].name} в базе beatmaps.`);
+				cache.filelist[i].gamemode = await _this.read_gamemode(i);
+                continue;
+            }
+			cache.filelist[i].gamemode = beatmaps[idx].gamemode_int;
+		}
+	},
+
+	sync_osu: async (local_storage_path = storage_path) => {
+
+		const osu_db = osu_db_load(path.join(local_storage_path.osu, 'osu!.db'), [
+			beatmap_property.folder_name,
+			beatmap_property.osu_filename,
+			beatmap_property.gamemode,
+			beatmap_property.beatmap_md5
+		]);
+
+		await _this.update_gamemode(osu_db.beatmaps);
+	},
+
+	check_gamemode: () => {
+		cache.filelist.forEach( (file, i) => {
+			if (typeof file.gamemode === 'undefined'){
+				console.log('gamemode undefined');
+				return;
+			}
+			if(isNaN(Number(file.gamemode))){
+				cache.filelist[i].gamemode = Gamemode[cache.filelist[i].gamemode];
+			}
+		});
+	},
+
+	md5_compare: async (local_storage_path = storage_path) => {
+		function difference ( beatmaps ) {
+			const filelist = _this.get_filelist({ is_raw: true, is_set: true });
+			return beatmaps.filter( x => filelist.has( x.beatmap_md5 ) === false );
+		}
+
+		const osu_db = osu_db_load(path.join(local_storage_path.osu, 'osu!.db'), [
+			beatmap_property.folder_name,
+			beatmap_property.osu_filename,
+			beatmap_property.gamemode,
+			beatmap_property.beatmap_md5
+		]);
+
+		const to_copy = difference(osu_db.beatmaps);
+		console.log(`Обнаружено ${to_copy.length} несовпадающих md5`);
+
+		for (const file of to_copy){
+			const res = _this.add_one(path.join(local_storage_path.osu, 'Songs', file.folder_name, file.osu_filename ), file.beatmap_md5 );
+			if (res === false){
+				console.error(`Ошибка добавления файла ${file.beatmap_md5}`);
+                continue;
+            }
+			const last = cache.filelist.length - 1;
+			cache.filelist[last].gamemode = await _this.read_gamemode(last);
+			console.log('> copy', file.beatmap_md5);
+		}
+
+	},
 }

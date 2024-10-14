@@ -20,7 +20,8 @@ if (args.length === 0) {
 
 storage.set_path({ 
 	source: path.join('D:', 'osu_md5_storage'),
-	destination: 'output'
+	destination: 'output',
+	osu: path.join('D:', 'osu!')
 });
 
 if (args.find( v => v === 'make' || v === 'create' || v === 'compress')) {
@@ -88,5 +89,30 @@ if (args.find( v => v === 'add_one' )) {
 		const file = await storage.read_one(filename);
 		delete file.data;
 		console.log(file);
+	})();
+}
+
+if (args.find( v => v === 'sync_osu' )) {
+	(async () => {
+		storage.prepare();
+		await storage.load_all_data();
+		await storage.sync_osu();
+		storage.save_filelist();
+	})();
+}
+
+if (args.find( v => v === 'check_gamemode' )) {
+	(async () => {
+		storage.prepare();
+		storage.check_gamemode();
+		storage.save_filelist();
+	})();
+}
+
+if (args.find( v => v === 'md5_compare' )) {
+	(async () => {
+		storage.prepare();
+		await storage.md5_compare();
+		storage.save_filelist();
 	})();
 }
