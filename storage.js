@@ -87,7 +87,8 @@ const _this = module.exports = {
 	},
 
 	load_all_data: async () => {
-		const chunk_size = Math.trunc(cache.filelist.length / 100);
+		console.log('Загрузка данных файлов');
+		const chunk_size = Math.trunc(cache.filelist.length / 1000);
 		for (let i = 0; i < cache.filelist.length; i++) {
 			if (i % chunk_size === 0) {
                 console.log(`(${((i / cache.filelist.length) * 100).toFixed(0)}%) Processing ${i + 1} of ${cache.filelist.length} files... `);
@@ -140,6 +141,7 @@ const _this = module.exports = {
 			}
 		}
 		_this.save_block(current_block, local_storage_path);
+		console.log('Сжатый файл сохранен');
 	},
 
 	find: (name) => {
@@ -269,11 +271,11 @@ const _this = module.exports = {
 			const file = { name, block_num, offset, size, data };
             cache.filelist.push(file);
 			_this.save_one(file);
-			console.log(`Добавлен новый файл: ${name}`);
+			console.log(`[${last}] Добавлен новый файл: ${name}`);
         } else {
+			cache.filelist[i].name = cache.filelist[i].name_deleted;
 			delete cache.filelist[i].name_deleted;
-            cache.filelist[i].name = name;
-            console.log(`Восстановлен удаленный файл: ${name}`);
+            console.log(`[${i}] Восстановлен удаленный файл: ${name}`);
 		}
 		return true;
 	},
@@ -289,13 +291,59 @@ const _this = module.exports = {
 			if (i++ % chunk_size === 0) {
                 console.log(`(${((i / cache.filelist.length) * 100).toFixed(0)}%) Проверка ${i} из ${cache.filelist.length} файлов... `);
             }
-			const file = await _this.read_one(name);
+			const file = await _this.read_one(name); 
 			const md5 = crypto.createHash('md5').update(file.data).digest("hex");
 			if (md5 !== name) {
 				writeFileSync(`errors/${name}`, file.data);
-				console.error(`Ошибка md5 для '${name}': ожидалось ${name}, получено ${md5}`);
+				console.error(`[${i}] Ошибка md5 для '${name}': ожидалось ${name}, получено ${md5}`);
 			}
 		}
+		console.log(`Проверка завершена.`);
+		return true;
+	},
+
+	check_after: async (percent) => {     
+		//create folders
+		check_folder('errors');
+		//check files, copy wrong to errors folder if md5 mismatch.
+		console.log('проверка файлов...');
+		let i = -1;
+		const chunk_size = Math.trunc(cache.filelist.length / 100);
+		const files = cache.filelist.map( v => v.name);
+		const skipping_procent = chunk_size * percent;
+		for (let i = skipping_procent; i < files.length; i++) {
+			if (i % chunk_size === 0) {
+				const current_percent = Math.trunc((i / cache.filelist.length) * 100);
+				console.log(`(${current_percent.toFixed(0)}%) Проверка ${i} из ${cache.filelist.length} файлов... `);
+			}
+			const file = await _this.read_one(files[i]);
+			const md5 = crypto.createHash('md5').update(file.data).digest("hex");
+			if (md5 !== files[i]) {
+				writeFileSync(`errors/${files[i]}`, file.data);
+				console.error(`[${i}] Ошибка md5 для '${files[i]}': ожидалось ${files[i]}, получено ${md5}`);
+				break;
+			}
+		}
+		console.log(`Проверка завершена.`);
+		return true;
+	},
+
+	remove_after: (name) => {
+		if (name.length !== 32) {
+			console.error('Имя файла должно быть md5-хэшем.');
+            return false;
+		}
+
+		const idx = _this.findIndex(name);
+
+		if (idx === -1) {
+			console.log(`Файл '${name}' не найден в списке.`);
+			return false;
+		}
+
+		const deleted = cache.filelist.splice(idx, cache.filelist.length - idx);
+		console.log(`Было удалено ${deleted.length} файлов`);
+
 	},
 
 	read_gamemode: async (i) => {

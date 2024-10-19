@@ -20,7 +20,7 @@ if (args.length === 0) {
 
 storage.set_path({ 
 	source: path.join('D:', 'osu_md5_storage'),
-	destination: 'output',
+	destination: path.join('D:', 'osu_md5_storage'),
 	osu: path.join('D:', 'osu!')
 });
 
@@ -59,7 +59,26 @@ if (args.find( v => v === 'read_one' || v === 'test' || v === 'check' )){
 if (args.find( v => v === 'check_all')) {
 	storage.prepare();
 	(async () => {
-		await storage.check_all(true);
+		await storage.check_all();
+	})();
+}
+
+//4c0a263438eb9b491b803cd8575eb777
+//ae79e66d56af81baab21d2f5dc5410a6
+
+if (args.find( v => v === 'check_after')) {
+	storage.prepare();
+	(async () => {
+		await storage.check_after(98);
+	})();
+}
+
+if (args.find( v => v === 'remove_after')) {
+	storage.prepare();
+	(async () => {
+		await storage.load_all_data();
+		storage.remove_after('ae79e66d56af81baab21d2f5dc5410a6');
+		await storage.save_all_data();
 	})();
 }
 
