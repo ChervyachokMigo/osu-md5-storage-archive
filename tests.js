@@ -131,7 +131,7 @@ if (args.find( v => v === 'check_gamemode' )) {
 if (args.find( v => v === 'md5_compare' )) {
 	(async () => {
 		storage.prepare();
-		await storage.md5_compare();
+		await storage.update_storage();
 
 	})();
 }

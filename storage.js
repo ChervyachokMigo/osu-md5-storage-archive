@@ -422,7 +422,7 @@ const _this = module.exports = {
 		});
 	},
 
-	md5_compare: async (local_storage_path = storage_path) => {
+	update_storage: async (local_storage_path = storage_path) => {
 		function difference ( beatmaps ) {
 			const filelist = _this.get_filelist({ is_raw: true, is_set: true });
 			return beatmaps.filter( x => filelist.has( x.beatmap_md5 ) === false );
@@ -446,7 +446,6 @@ const _this = module.exports = {
             }
 			const last = cache.filelist.length - 1;
 			cache.filelist[last].gamemode = await _this.read_gamemode(last);
-			console.log('> copy', file.beatmap_md5);
 			saved++;
 		}
 		if (saved > 0) {
