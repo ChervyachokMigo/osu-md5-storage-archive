@@ -172,6 +172,35 @@ const _this = module.exports = {
 		} 
 	},
 
+	get_info: () => {
+		console.log('files count:', cache.filelist.length);
+		let blocks_count = 0;
+		cache.filelist.forEach( v => {
+			if (v.block_num > blocks_count) 
+				blocks_count = v.block_num;
+		});
+		console.log('blocks count:', blocks_count);
+		let last_idx = 0;
+		for (let block_num = 0; block_num <= blocks_count; block_num++) {
+			console.log(`[Block ${block_num}]`);
+			const block_files = cache.filelist.filter( v => v.block_num === block_num);
+			last_idx += block_files.length;
+			let start_idx = last_idx - block_files.length;
+			console.log(`  Index range: ${start_idx}-${last_idx - 1}`);
+			for (let gamemode of Object.values(Gamemode)) {
+				if (typeof gamemode === 'string'){
+					continue
+				}
+				const block_gamemode = block_files.filter( v => v.gamemode === gamemode);
+				console.log(`  ${Gamemode[gamemode]} files: ${block_gamemode.length} `);
+			}
+			const deleted_files = cache.filelist.filter( v => v.name_deleted );
+			console.log(`  Deleted files: ${deleted_files.length}`);
+			console.log(`  Total files: ${block_files.length}`);
+		}
+
+	},
+
 	read_one_by_index: async (i) => {
 		return await new Promise( (res, rej) => {
 			const stream = createReadStream( storage_path.destination + '_' + cache.filelist[i].block_num + '.raw', { 					
@@ -302,7 +331,7 @@ const _this = module.exports = {
 		return true;
 	},
 
-	check_after: async (percent) => {     
+	check_after: async ({ percent, num }) => {     
 		//create folders
 		check_folder('errors');
 		//check files, copy wrong to errors folder if md5 mismatch.
@@ -310,11 +339,13 @@ const _this = module.exports = {
 		let i = -1;
 		const chunk_size = Math.trunc(cache.filelist.length / 100);
 		const files = cache.filelist.map( v => v.name);
-		const skipping_procent = chunk_size * percent;
-		for (let i = skipping_procent; i < files.length; i++) {
-			if (i % chunk_size === 0) {
+		const skipping_idx = num ? Number(num) : chunk_size * percent ;
+		let first = true;
+		for (let i = skipping_idx; i < files.length; i++) {
+			if (first || i % chunk_size === 0) {
 				const current_percent = Math.trunc((i / cache.filelist.length) * 100);
 				console.log(`(${current_percent.toFixed(0)}%) Проверка ${i} из ${cache.filelist.length} файлов... `);
+				first = false;
 			}
 			const file = await _this.read_one(files[i]);
 			const md5 = crypto.createHash('md5').update(file.data).digest("hex");

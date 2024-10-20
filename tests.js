@@ -69,7 +69,7 @@ if (args.find( v => v === 'check_all')) {
 if (args.find( v => v === 'check_after')) {
 	storage.prepare();
 	(async () => {
-		await storage.check_after(98);
+		await storage.check_after({ num: 230000 });
 	})();
 }
 
@@ -117,6 +117,13 @@ if (args.find( v => v === 'sync_osu' )) {
 		await storage.load_all_data();
 		await storage.sync_osu();
 		storage.save_filelist();
+	})();
+}
+
+if (args.find( v => v === 'get_info' )) {
+	(async () => {
+		storage.prepare();
+		storage.get_info();
 	})();
 }
 
