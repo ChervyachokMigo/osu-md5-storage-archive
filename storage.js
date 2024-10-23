@@ -273,24 +273,40 @@ const _this = module.exports = {
 		}
 	},
 
-	add_one: (filepath, md5 = null) => {
-		//checkexist
-		if (!existsSync(filepath)) {
+    /**
+	 * 
+	 * @param {*} args 
+	 * @param {string} args.filepath path to file
+	 * @param {string} args.md5 md5 hash or nothing
+	 * @returns index in storage
+	 */
+	add_one: (args) => {
+		const filepath = args.filepath || null;
+
+		if (!filepath || !existsSync(filepath)) {
             console.error(`Файл '${filepath}' не найден.`);
 			return false;
         }
+		
+		let md5 = args.md5 || null;
+
+		//reading data
+		const data = readFileSync(filepath);
 
 		if (!md5) {
-			md5 = path.basename(filepath).slice(0, 32);
-		} 
+			md5 = _this.get_md5(data);
+		}
+
+		//synonyms
 		const name = md5;
-		const data = readFileSync(filepath);
+		
 		const i = cache.filelist.findIndex( v => v.name_deleted === name);
+
 		if (i === -1) {
-			const last = cache.filelist.length - 1;
-			let last_offset = cache.filelist[last].offset;
-			let last_size = cache.filelist[last].size;
-			let block_num = cache.filelist[last].block_num;
+			const idx = cache.filelist.length - 1;
+			let last_offset = cache.filelist[idx].offset;
+			let last_size = cache.filelist[idx].size;
+			let block_num = cache.filelist[idx].block_num;
             let offset = last_offset + last_size;
 			let size = data.length;
 			if (offset > block_size) {
@@ -300,14 +316,17 @@ const _this = module.exports = {
 			const file = { name, block_num, offset, size, data };
             cache.filelist.push(file);
 			_this.save_one(file);
-			console.log(`[${last}] Добавлен новый файл: ${name}`);
+			console.log(`[${idx}] Добавлен новый файл: ${name}`);
+			return idx;
         } else {
 			cache.filelist[i].name = cache.filelist[i].name_deleted;
 			delete cache.filelist[i].name_deleted;
             console.log(`[${i}] Восстановлен удаленный файл: ${name}`);
+			return i;
 		}
-		return true;
 	},
+
+	get_md5: (data) => crypto.createHash('md5').update(data).digest("hex"),
 
 	check_all: async () => {     
 		//create folders
@@ -321,7 +340,7 @@ const _this = module.exports = {
                 console.log(`(${((i / cache.filelist.length) * 100).toFixed(0)}%) Проверка ${i} из ${cache.filelist.length} файлов... `);
             }
 			const file = await _this.read_one(name); 
-			const md5 = crypto.createHash('md5').update(file.data).digest("hex");
+			const md5 = _this.get_md5(file.data);
 			if (md5 !== name) {
 				writeFileSync(`errors/${name}`, file.data);
 				console.error(`[${i}] Ошибка md5 для '${name}': ожидалось ${name}, получено ${md5}`);
@@ -470,7 +489,8 @@ const _this = module.exports = {
 		console.log(`Обнаружено ${to_copy.length} несовпадающих md5`);
 		let saved = 0;
 		for (const file of to_copy){
-			const res = _this.add_one(path.join(local_storage_path.osu, 'Songs', file.folder_name, file.osu_filename ), file.beatmap_md5 );
+			const filepath = path.join(local_storage_path.osu, 'Songs', file.folder_name, file.osu_filename );
+			const res = _this.add_one({ filepath, md5: file.beatmap_md5 });
 			if (res === false){
 				console.error(`Ошибка добавления файла ${file.beatmap_md5}`);
                 continue;

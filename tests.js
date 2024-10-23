@@ -102,7 +102,7 @@ if (args.find( v => v === 'add_one' )) {
 		storage.prepare(test_output);
 		await storage.load_all_data();
 		storage.remove_one(filename);
-		storage.add_one(filename);
+		storage.add_one({ filepath: filename });
 		storage.save_filelist(test_output);
 		//await storage.save_all_data(test_output);
 		const file = await storage.read_one(filename);
