@@ -295,10 +295,11 @@ const _this = module.exports = {
         //check md5 hash
 		const md5 = _this.get_md5(data);
 		if (args.md5 && args.md5!== md5) {
-			console.error(`MD5 хэш файла '${filepath}' не совпадает.`,
-				`Ожидаемый MD5 хэш: ${args.md5}`,
-                `Полученный MD5 хэш: ${md5}`
+			console.error(` MD5 хэш файла '${filepath}' не совпадает.\n`,
+				` Ожидаемый MD5 хэш: ${args.md5}\n`,
+                ` Полученный MD5 хэш: ${md5}\n`
 			)
+			return false;
         }
 
 		//synonyms
@@ -368,19 +369,18 @@ const _this = module.exports = {
 		//check files, copy wrong to errors folder if md5 mismatch.
 		console.log('проверка файлов...');
 		let i = -1;
-		const chunk_size = Math.trunc(cache.filelist.length / 100);
+		const chunk_size = Math.trunc(cache.filelist.length / 1000);
 		const skipping_idx = num ? Number(num) : chunk_size * percent ;
-		let first = true;
+
 		for (let i = skipping_idx; i < cache.filelist.length; i++) {
 			if (!cache.filelist[i].name) {
 				console.error('файл с индексом ', i,' удалён. Пропуск');
                 continue;
 			}
-			if (first || i % chunk_size === 0) {
-				const text = `(${((i / cache.filelist.length) * 100).toFixed(0)}%) Проверка ${i} из ${cache.filelist.length} файлов... `;
-				process.stdout.write( text +'\r');
-				first = false;
-			}
+
+			const text = `(${((i / cache.filelist.length) * 100).toFixed(0)}%) Проверка ${i} из ${cache.filelist.length} файлов... `;
+			process.stdout.write( text +'\r');
+
 			const file = await _this.read_one(cache.filelist[i].name);
 			const md5 = _this.get_md5(file.data);
 			if (md5 !== cache.filelist[i].name) {
@@ -542,4 +542,12 @@ const _this = module.exports = {
 
 		return new_files;
 	},
+
+	check_files_by_list: async (list) => {
+		for (let i = 0; i < list.length; i++) {
+			const text = `(${((i / list.length) * 100).toFixed(0)}%) проверка файлов ${i} из ${list.length} файлов... `;
+			process.stdout.write( text +'\r');
+			await _this.check_one(list[i]);
+		}
+	}
 }

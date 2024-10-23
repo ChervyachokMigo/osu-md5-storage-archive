@@ -141,10 +141,6 @@ if (args.find( v => v === 'md5_compare'  || v === 'update_storage' )) {
 	(async () => {
 		storage.prepare();
 		const new_files = await storage.update_storage();
-		for(let idx of new_files) {
-			const text = `(${((idx / new_files.length) * 100).toFixed(0)}%) проверка файлов ${idx} из ${new_files.length} файлов... `;
-			process.stdout.write( text +'\r');
-			await storage.check_one(idx);
-		}
+		await storage.check_files_by_list(new_files);
 	})();
 }
