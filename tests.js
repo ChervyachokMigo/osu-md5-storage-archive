@@ -69,7 +69,8 @@ if (args.find( v => v === 'check_all')) {
 if (args.find( v => v === 'check_after')) {
 	storage.prepare();
 	(async () => {
-		await storage.check_after({ num: 230000 });
+		//await storage.check_after({ num: 240446 });
+		await storage.check_after({ num: 240000 });
 	})();
 }
 
@@ -77,7 +78,8 @@ if (args.find( v => v === 'remove_after')) {
 	storage.prepare();
 	(async () => {
 		await storage.load_all_data();
-		storage.remove_after('ae79e66d56af81baab21d2f5dc5410a6');
+		storage.remove_after('7a93fffe5c77b46cf8003dc10e5ebd7a');
+		//storage.remove_after('ae79e66d56af81baab21d2f5dc5410a6');
 		await storage.save_all_data();
 	})();
 }
@@ -135,10 +137,14 @@ if (args.find( v => v === 'check_gamemode' )) {
 	})();
 }
 
-if (args.find( v => v === 'md5_compare' )) {
+if (args.find( v => v === 'md5_compare'  || v === 'update_storage' )) {
 	(async () => {
 		storage.prepare();
-		await storage.update_storage();
-
+		const new_files = await storage.update_storage();
+		for(let idx of new_files) {
+			const text = `(${((idx / new_files.length) * 100).toFixed(0)}%) проверка файлов ${idx} из ${new_files.length} файлов... `;
+			process.stdout.write( text +'\r');
+			await storage.check_one(idx);
+		}
 	})();
 }
