@@ -19,3 +19,5 @@ test_2.raw
 test_3.raw
 osu-md5-storage-archive.rar
 test.js
+app.env
+/data

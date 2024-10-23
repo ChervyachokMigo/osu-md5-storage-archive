@@ -3,9 +3,10 @@ const { readdirSync, existsSync, readFileSync, writeFileSync, createWriteStream,
 //const lzma = require("lzma");
 const path = require('path');
 const JSONbig = require('json-bigint');
-const md5File = require('md5-file');
 const crypto = require('crypto');
 const { osu_db_load, beatmap_property, Gamemode } = require("osu-tools");
+const { check_folder } = require('./misc');
+const { init_ignore_list, find_ignore, add_ignore, get_beatmap } = require('./beatmaps');
 
 const cache = {
 	filelist: null
@@ -19,12 +20,6 @@ const storage_path = {
 
 const block_size = 2000111000;
 
-const check_folder = (foldername) => {
-	if (!existsSync(foldername)) {
-		mkdirSync(foldername);
-	}
-}
-
 const _this = module.exports = {
 	set_path: ({ source, destination, osu }) => {
 		storage_path.source = source;
@@ -33,6 +28,7 @@ const _this = module.exports = {
 	},
 
 	prepare: (local_storage_path = storage_path) => {
+		init_ignore_list();
 		if (!cache.filelist) {
             _this.load_filelist(local_storage_path);
         }
@@ -281,25 +277,49 @@ const _this = module.exports = {
 	 * @param {string} args.md5 md5 hash or nothing
 	 * @returns index in storage
 	 */
-	add_one: (args) => {
+	add_one: async (args) => {
+		if (!args.md5){
+			console.error(`MD5 хэш не указан.`);
+            return false;
+		}
+		
+		if (args.md5 && find_ignore(args.md5)) {
+			console.error(`[${args.md5}] Файл игнорируется.`);
+            return false;
+		}
+
 		const filepath = args.filepath || null;
 
-		if (!filepath || !existsSync(filepath)) {
-            console.error(`Файл '${filepath}' не найден.`);
-			return false;
-        }
+		let data = null;
 
-		//reading data
-		const data = readFileSync(filepath);
+		if (!filepath || !existsSync(filepath)) {
+
+			const res = await get_beatmap(args.md5);
+			if (!res) {
+				console.error(`Файл '${filepath}' не найден.`);
+				return false;
+			}
+			data = res;
+
+        } else {
+			data = readFileSync(filepath);
+		}		
 
         //check md5 hash
-		const md5 = _this.get_md5(data);
+		let md5 = _this.get_md5(data);
 		if (args.md5 && args.md5!== md5) {
+
 			console.error(` MD5 хэш файла '${filepath}' не совпадает.\n`,
 				` Ожидаемый MD5 хэш: ${args.md5}\n`,
                 ` Полученный MD5 хэш: ${md5}\n`
-			)
-			return false;
+			);
+
+			const res = await get_beatmap(args.md5);
+
+			if (!res) return false;
+
+			data = res;
+			md5 = args.md5;
         }
 
 		//synonyms
@@ -525,9 +545,9 @@ const _this = module.exports = {
 
 		for (const file of to_copy){
 			const filepath = path.join(local_storage_path.osu, 'Songs', file.folder_name, file.osu_filename );
-			const idx = _this.add_one({ filepath, md5: file.beatmap_md5 });
+			const idx = await _this.add_one({ filepath, md5: file.beatmap_md5 });
 			if (idx === false){
-				console.error(`Ошибка добавления файла ${file.beatmap_md5}`);
+				//console.error(`Ошибка добавления файла ${file.beatmap_md5}`);
                 continue;
             }
 			cache.filelist[idx].gamemode = await _this.read_gamemode(idx);

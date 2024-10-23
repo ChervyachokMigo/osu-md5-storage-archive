@@ -4,13 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-	
-    "test": "set NODE_OPTIONS=\"--max-old-space-size=22000\" && node main.js"
+    "test": "node --env-file=app.env test.js",
+	"start": "node --env-file=app.env tests.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.7.7",
     "crypto": "^1.0.1",
     "fs-extra": "^11.2.0",
     "json-bigint": "^1.0.0",

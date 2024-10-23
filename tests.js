@@ -3,6 +3,7 @@ const md5File = require('md5-file');
 
 const storage = require('./storage');
 const path = require('path');
+const { set_api_key } = require('./requests');
 
 console.log(
     'Available commands:\n',
@@ -104,7 +105,7 @@ if (args.find( v => v === 'add_one' )) {
 		storage.prepare(test_output);
 		await storage.load_all_data();
 		storage.remove_one(filename);
-		storage.add_one({ filepath: filename });
+		await storage.add_one({ filepath: filename });
 		storage.save_filelist(test_output);
 		//await storage.save_all_data(test_output);
 		const file = await storage.read_one(filename);
@@ -139,6 +140,13 @@ if (args.find( v => v === 'check_gamemode' )) {
 
 if (args.find( v => v === 'md5_compare'  || v === 'update_storage' )) {
 	(async () => {
+		if (!process.env.api_key){
+			console.log('Error: No API key provided.');
+            process.exit();
+		}
+		
+		set_api_key(process.env.api_key)
+
 		storage.prepare();
 		const new_files = await storage.update_storage();
 		await storage.check_files_by_list(new_files);
