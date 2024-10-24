@@ -5,12 +5,6 @@ const storage = require('./storage');
 const path = require('path');
 const { set_api_key } = require('./requests');
 
-console.log(
-    'Available commands:\n',
-    'create | make | compress \n',
-	'check | test | read_one\n'
-);
-
 const args = process.argv.slice(2);
 
 //empty args
@@ -27,7 +21,9 @@ storage.set_path({
 
 if (args.find( v => v === 'make' || v === 'create' || v === 'compress')) {
 	(async () => {
-		await storage.compress_files();
+		storage.prepare();
+		const new_files = await storage.compress_files();
+		await storage.check_files_by_list(new_files);
 	})();
 }
 
@@ -41,19 +37,28 @@ if (args.find( v => v === 'load_save_check' )) {
 	(async () => {
 		storage.prepare();
 		await storage.load_all_data();
-		await storage.save_all_data({ destination: 'test' });
+		storage.save_all_data(0, { destination: 'test' });
 	})();
 }
 
 if (args.find( v => v === 'read_one' || v === 'test' || v === 'check' )){
 	(async () => {
+		if (!args[1]){
+			console.log('No md5 provided for remove_after');
+            return;
+		}
 		//const filename = 'fffffe34362eaf3985c1e2a450f512aa'; 
 		//const filename = '0c4c56f01318ed043312cb0f14787c54';
-		const filename = '65f71d98ee538a91cac3f2d406e02018';
-		storage.prepare({destination: 'test'});
-		const file = await storage.read_one(filename);
-		fs.writeFileSync(filename, file.data);
-		console.log(filename, '->', md5File.sync(filename));
+		//const filename = '65f71d98ee538a91cac3f2d406e02018';
+		storage.prepare();
+		try {
+			const file = await storage.read_one(args[1]);
+			fs.writeFileSync(args[1], file.data);
+			console.log(args[1], '->', md5File.sync(args[1]));
+		} catch(e) {
+			log(`Ошибка при загрузке файла: ${args[1]}`);
+			process.exit()
+		}
 	})();
 }
 
@@ -71,17 +76,23 @@ if (args.find( v => v === 'check_after')) {
 	storage.prepare();
 	(async () => {
 		//await storage.check_after({ num: 240446 });
-		await storage.check_after({ num: 240000 });
+		await storage.check_after({ num: 184181 });
 	})();
 }
 
 if (args.find( v => v === 'remove_after')) {
 	storage.prepare();
 	(async () => {
+		//check md5 of file in command line
+		if (!args[1]){
+			console.log('No md5 provided for remove_after');
+            return;
+		}
 		await storage.load_all_data();
-		storage.remove_after('7a93fffe5c77b46cf8003dc10e5ebd7a');
-		//storage.remove_after('ae79e66d56af81baab21d2f5dc5410a6');
-		await storage.save_all_data();
+		const start_block = storage.remove_after(args[1]);
+		if (start_block !== false) {
+			storage.save_all_data(start_block);
+		}
 	})();
 }
 
@@ -93,8 +104,13 @@ if (args.find( v => v === 'remove_one' )) {
 		await storage.load_all_data();
 		storage.remove_one(filename);
 		storage.save_filelist(test_output);
-		//await storage.save_all_data(test_output);
-		const file = await storage.read_one(filename);
+		//storage.save_all_data(0, test_output);
+		try{
+			const file = await storage.read_one(filename);
+		} catch(e) {
+			log(`Ошибка при загрузке файла: ${filename}`);
+			process.exit()
+		}
 	})();
 }
 
@@ -107,10 +123,15 @@ if (args.find( v => v === 'add_one' )) {
 		storage.remove_one(filename);
 		await storage.add_one({ filepath: filename });
 		storage.save_filelist(test_output);
-		//await storage.save_all_data(test_output);
-		const file = await storage.read_one(filename);
-		delete file.data;
-		console.log(file);
+		//storage.save_all_data(0, test_output);
+		try{
+			const file = await storage.read_one(filename);
+			delete file.data;
+			console.log(file);
+		} catch(e) {
+			log(`Ошибка при загрузке файла: ${filename}`);
+			process.exit()
+		}
 	})();
 }
 
@@ -138,7 +159,7 @@ if (args.find( v => v === 'check_gamemode' )) {
 	})();
 }
 
-if (args.find( v => v === 'md5_compare'  || v === 'update_storage' )) {
+if (args.find( v => v === 'update_storage' )) {
 	(async () => {
 		if (!process.env.api_key){
 			console.log('Error: No API key provided.');

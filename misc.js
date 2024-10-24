@@ -6,5 +6,9 @@ module.exports = {
 		if (!existsSync(folder_path)) {
 			mkdirSync(folder_path);
 		}
+	},
+
+	log: (...text) => {
+		console.log(...text, '                                        ');
 	}
 }
