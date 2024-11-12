@@ -39,6 +39,10 @@ const _this = module.exports = {
 	},
 
 	get_beatmap: async (md5) => {
+		if (!md5) {
+            return false;
+        }
+
 		if (ignore_list.includes(md5)) {
 			console.log(`[${md5}] Skipping due to being in ignore list`);
             return false;

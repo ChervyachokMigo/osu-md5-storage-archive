@@ -53,6 +53,10 @@ const _this = module.exports = {
 			
 			const md5 = files[i].slice(0, 32);
 
+			if (md5){
+				continue;
+			}
+
 			if (files_set.has(md5)) {
                 continue;
             }
@@ -600,15 +604,22 @@ const _this = module.exports = {
 		let saved = 0;
 
 		for (const file of to_copy){
+			if (file.beatmap_md5){
+				continue;
+			}
+
 			if (find_ignore(file.beatmap_md5)) {
 				continue;
             }
+
 			const filepath = path.join(local_storage_path.osu, 'Songs', file.folder_name, file.osu_filename );
 			const idx = await _this.add_one({ filepath, md5: file.beatmap_md5 });
+
 			if (idx === false){
 				add_ignore(file.beatmap_md5);
                 continue;
             }
+			
 			cache.filelist[idx].gamemode = file.gamemode_int;
 			new_files_idx.push(idx);
 			saved++;
