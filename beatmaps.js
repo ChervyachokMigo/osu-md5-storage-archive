@@ -10,6 +10,7 @@ let ignore_list = [];
 
 const _this = module.exports = {
 	find_ignore: (md5) => ignore_list.indexOf(md5) > -1,
+	get_ignore_list: () => ignore_list,
 	save_ignore_list: () => writeFileSync( ignore_list_path, JSON.stringify(ignore_list), { encoding: 'utf8' }),
 	init_ignore_list: () => {
 		check_folder('data');
@@ -38,6 +39,11 @@ const _this = module.exports = {
 	},
 
 	get_beatmap: async (md5) => {
+		if (ignore_list.includes(md5)) {
+			console.log(`[${md5}] Skipping due to being in ignore list`);
+            return false;
+		}
+
 		const beatmap = await request_beatmap(md5);
 
 		if (!beatmap) {

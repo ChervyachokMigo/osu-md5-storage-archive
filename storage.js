@@ -57,6 +57,10 @@ const _this = module.exports = {
                 continue;
             }
 
+			if (find_ignore(md5)) {
+				continue;
+			}
+
 			const filepath = path.join(storage_path.source, files[i]);
 
 			const idx = await _this.add_one({ filepath, md5 });
@@ -596,6 +600,9 @@ const _this = module.exports = {
 		let saved = 0;
 
 		for (const file of to_copy){
+			if (find_ignore(file.beatmap_md5)) {
+				continue;
+            }
 			const filepath = path.join(local_storage_path.osu, 'Songs', file.folder_name, file.osu_filename );
 			const idx = await _this.add_one({ filepath, md5: file.beatmap_md5 });
 			if (idx === false){
