@@ -16,7 +16,8 @@ if (args.length === 0) {
 storage.set_path({ 
 	source: path.join('D:', 'osu_md5_storage'),
 	destination: path.join('D:', 'osu_md5_storage'),
-	osu: path.join('D:', 'osu!')
+	osu: path.join('D:', 'osu!'),
+	laser_files: path.join('D:', 'osu!laser', 'files')
 });
 
 if (args.find( v => v === 'make' || v === 'create' || v === 'compress')) {
@@ -170,6 +171,22 @@ if (args.find( v => v === 'update_storage' )) {
 
 		storage.prepare();
 		const new_files = await storage.update_storage();
+		await storage.check_files_by_list(new_files);
+	})();
+}
+
+if (args.find( v => v === 'update_storage_from_realm' )) {
+	(async () => {
+		if (!process.env.api_key){
+			console.log('Error: No API key provided.');
+            process.exit();
+		}
+		
+		set_api_key(process.env.api_key)
+
+		storage.prepare();
+		storage.laser.init_realm(path.join('D:', 'osu!laser', 'client.realm'));
+		const new_files = await storage.laser.update_storage_from_realm();
 		await storage.check_files_by_list(new_files);
 	})();
 }

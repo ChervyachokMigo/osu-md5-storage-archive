@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --env-file=app.env test.js",
-	"start": "node --env-file=app.env tests.js"
+    "test": "node --env-file=app.env tests.js"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +16,6 @@
     "json-bigint": "^1.0.0",
     "lzma": "^2.3.2",
     "md5-file": "^5.0.0",
-    "osu-tools": "^0.1.45"
+    "osu-tools": "^0.1.57"
   }
 }

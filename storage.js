@@ -4,27 +4,31 @@ const { readdirSync, existsSync, readFileSync, writeFileSync, createReadStream, 
 const path = require('path');
 //const JSONbig = require('json-bigint');
 const crypto = require('crypto');
-const { osu_db_load, beatmap_property, Gamemode } = require("osu-tools");
+const { osu_db_load, beatmap_property, Gamemode, open_realm, get_realm_objects, set_laser_files_path, get_laser_beatmap_file_path } = require("osu-tools");
 const { check_folder, log } = require('./misc');
 const { init_ignore_list, find_ignore, get_beatmap, add_ignore } = require('./beatmaps');
 
 const cache = {
-	filelist: []
+	filelist: [],
+	realm: null,
+	realm_beatmaps: []
 }
 
 const storage_path = {
 	source: null,
 	destination: null,
-	osu: null
+	osu: null,
+	laser_files: null
 }
 
 const block_size = 2000111000;
 
 const _this = module.exports = {
-	set_path: ({ source, destination, osu }) => {
+	set_path: ({ source, destination, osu, laser_files }) => {
 		storage_path.source = source;
 		storage_path.destination = destination;
 		storage_path.osu = osu;
+		storage_path.laser_files = laser_files;
 	},
 
 	prepare: (local_storage_path = storage_path) => {
@@ -641,5 +645,71 @@ const _this = module.exports = {
 			process.stdout.write( text +'\r');
 			await _this.check_one(list[i]);
 		}
+	},
+
+	laser: {
+		init_realm: (realm_path) => {
+			if (!existsSync(realm_path)) {
+				throw new Error(`Realm file ${realm_path} not found.`);
+			}
+			cache.realm = open_realm(realm_path);
+		},
+
+		update_storage_from_realm: async (local_storage_path = storage_path) => {
+			function difference ( beatmaps ) {
+				const filelist = _this.get_filelist({ is_raw: true, is_set: true });
+				return beatmaps.filter( x => filelist.has( x.MD5Hash ) === false );
+			}
+			
+			if (!local_storage_path.laser_files) {
+				throw new Error('Local storage path for laser files not provided.');
+			}
+
+			set_laser_files_path(local_storage_path.laser_files);
+
+			cache.realm_beatmaps = get_realm_objects(cache.realm, 'Beatmap');
+
+			const to_copy = difference(cache.realm_beatmaps);
+
+			const new_files_idx = [];
+
+			if (to_copy.length === 0) {
+				log('Нет новых файлов');
+				return new_files_idx;
+			}
+
+			log(`Обнаружено ${to_copy.length} несовпадающих md5`);
+			
+			let saved = 0;
+
+			for (const file of to_copy){
+
+				if (find_ignore(file.MD5Hash)) {
+					continue;
+				}
+
+				const filepath = get_laser_beatmap_file_path(file.Hash);
+
+				const idx = await _this.add_one({ filepath, md5: file.MD5Hash });
+
+				if (idx === false){
+					add_ignore(file.MD5Hash);
+					continue;
+				}
+				
+				cache.filelist[idx].gamemode = file.Ruleset.OnlineID;
+				new_files_idx.push(idx);
+				saved++;
+			}
+
+			if (saved > 0) {
+				_this.save_filelist(local_storage_path);
+				log(`Скопировано ${saved} файлов`);
+			} else {
+				log('Ни один новый файл не добавлен');
+			}
+
+			return new_files_idx;
+		},
 	}
 }
