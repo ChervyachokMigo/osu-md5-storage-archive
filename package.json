@@ -1,21 +1,21 @@
 {
-  "name": "osu-md5-storage-archive",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "node --env-file=app.env tests.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "axios": "^1.7.7",
-    "crypto": "^1.0.1",
-    "fs-extra": "^11.2.0",
-    "json-bigint": "^1.0.0",
-    "lzma": "^2.3.2",
-    "md5-file": "^5.0.0",
-    "osu-tools": "^0.1.57"
-  }
+	"name": "osu-md5-storage-archive",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "node --env-file=app.env tests.js"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"axios": "^1.7.7",
+		"crypto": "^1.0.1",
+		"fs-extra": "^11.2.0",
+		"json-bigint": "^1.0.0",
+		"lzma": "^2.3.2",
+		"md5-file": "^5.0.0",
+		"osu-tools": "^0.1.57"
+	}
 }
