@@ -655,6 +655,14 @@ const _this = module.exports = {
 			cache.realm = open_realm(realm_path);
 		},
 
+		close_realm:  () => {
+			cache.realm.close();
+		},
+
+		get_realm_objects: (RealmObjectType) => {
+            return get_realm_objects(cache.realm, RealmObjectType);
+        },
+
 		update_storage_from_realm: async (local_storage_path = storage_path) => {
 			function difference ( beatmaps ) {
 				const filelist = _this.get_filelist({ is_raw: true, is_set: true });
