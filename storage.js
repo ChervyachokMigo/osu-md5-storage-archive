@@ -696,6 +696,10 @@ const _this = module.exports = {
 					continue;
 				}
 
+				if (!file.Hash) {
+					continue;
+				}
+
 				const filepath = get_laser_beatmap_file_path(file.Hash);
 
 				const idx = await _this.add_one({ filepath, md5: file.MD5Hash });
