@@ -474,7 +474,7 @@ const _this = module.exports = {
 				return false;
 			}
 		} catch(e) {
-			log(`[${i}] Ошибка при загрузке файла: ${cache.filelist[idx].name}`);
+			log(`[${idx}] Ошибка при загрузке файла: ${cache.filelist[idx].name}`);
 			process.exit()
 		}
 
